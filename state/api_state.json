@@ -1,0 +1,16 @@
+{
+  "signals": {
+    "tool.registration": "0",
+    "tool.requiresInvite": "0",
+    "tool.requiresTicket": "1",
+    "tool.hideSoldOutTickets": "0",
+    "tool.allowsWaitlist": "1",
+    "tool.giveawayTicket": "0",
+    "tab.myForms.visible": "0",
+    "tab.myItinerary.visible": "0",
+    "tab.ticketManager.visible": "0",
+    "ticket.status": 400,
+    "ticket.error": "attribute is a required parameter"
+  },
+  "hash": "e1bc18b6182cff83a93c69d5c60718fdfdba9fc02fe694987fdb9b9af2a6da4e"
+}
