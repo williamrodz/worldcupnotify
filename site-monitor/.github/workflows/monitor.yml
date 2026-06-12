@@ -1,0 +1,41 @@
+name: Site Monitor
+
+on:
+  schedule:
+    # Every hour at minute 7 (avoid :00 — GitHub delays on-the-hour crons heavily)
+    - cron: "7 * * * *"
+  workflow_dispatch: {}  # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write  # needed to commit the state file back
+
+concurrency:
+  group: site-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run monitor
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python monitor.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "site-monitor-bot"
+          git config user.email "actions@github.com"
+          git add state/
+          if ! git diff --cached --quiet; then
+            git commit -m "Update site state [skip ci]"
+            git push
+          else
+            echo "No state changes to commit."
+          fi
