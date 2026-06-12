@@ -1,51 +1,39 @@
-# adidas Home of Soccer — Ticket Monitor
+# adidas Home of Soccer — Ticket Monitor (API edition)
 
-Checks https://www.adidashomeofsoccer.com/ every hour via GitHub Actions and
-pushes a notification to your iPhone via ntfy.sh when the page changes.
+Watches the InEvent API behind https://www.adidashomeofsoccer.com/ (eventID
+88244) every hour via GitHub Actions and pushes an iPhone notification via
+ntfy.sh the moment registration state changes.
+
+## What it watches
+1. **Hot flags** (max-priority "🎟️ TICKETS LIKELY LIVE" alert):
+   - `event.tool.get` → `registration` (currently "0")
+   - `event.tab.find` → "My Tickets" tab visibility (currently "0")
+   - `ticket.find` → endpoint status/ticket count (currently errors with 400;
+     if it ever returns real ticket data, you'll know immediately, including
+     ticket names and prices in the notification)
+2. **Other watched flags** (high-priority alert with exact field diff):
+   `requiresInvite`, `requiresTicket`, `hideSoldOutTickets`, `allowsWaitlist`,
+   `giveawayTicket`, plus visibility of itinerary/forms tabs.
+3. **Anything else** in the two public payloads (default-priority alert via
+   full payload hash).
 
 ## Setup (~5 minutes)
+1. **ntfy**: install the ntfy iOS app → subscribe to a random topic name,
+   e.g. `william-hos-x7k2q`. Topics are public to anyone who knows the name,
+   so keep it unguessable.
+2. **GitHub**: create a private repo, upload `monitor.py` and
+   `.github/workflows/monitor.yml` (keep the folder structure). Add a repo
+   secret `NTFY_TOPIC` = your topic name
+   (Settings → Secrets and variables → Actions).
+3. **Test**: Actions tab → "Site Monitor" → Run workflow. First run saves a
+   baseline. Test your phone with: `curl -d "test" ntfy.sh/YOUR_TOPIC`
 
-### 1. iPhone notifications (ntfy)
-1. Install **ntfy** from the App Store (free).
-2. Open it → Subscribe to topic → enter a hard-to-guess topic name, e.g.
-   `william-hos-tickets-x7k2q`. (Topics are public — anyone who knows the
-   name can see/send messages, so make it random.)
-3. In iOS Settings → ntfy → enable notifications. In the app, consider
-   enabling "instant delivery" if offered.
-
-### 2. GitHub repo
-1. Create a **private** repo (e.g. `site-monitor`).
-2. Upload these files keeping the structure:
-   - `monitor.py`
-   - `.github/workflows/monitor.yml`
-3. Repo → Settings → Secrets and variables → Actions → **New repository
-   secret**: name `NTFY_TOPIC`, value = your topic name from step 1.
-
-### 3. Test it
-1. Repo → Actions tab → "Site Monitor" → **Run workflow**.
-2. First run saves a baseline (no notification). Run it a second time to
-   confirm "No change." appears in the logs.
-3. To test the notification end-to-end, run from any terminal:
-   `curl -d "test" ntfy.sh/YOUR_TOPIC_NAME` — your phone should buzz.
-
-That's it. It now runs hourly forever, free.
-
-## Notes & gotchas
-- **GitHub cron is not exact.** Scheduled runs can be delayed 5–30 min during
-  busy periods. The workflow is set to minute :07 to reduce this. If timing is
-  critical near the expected drop date, temporarily change the cron to
-  `*/15 * * * *` (every 15 min).
-- **The site is a JavaScript app (InEvent platform).** The script hashes the
-  served HTML after stripping volatile tokens/timestamps. This catches
-  deployments and shell changes, which usually accompany registration
-  opening. If you want to be bulletproof: open the site in Chrome, DevTools →
-  Network → filter `api.inevent.com`, find the request that returns the
-  event/ticket data, and we can point the monitor at that JSON endpoint
-  instead — a much cleaner change signal.
-- **Free tier:** private repos get 2,000 Actions minutes/month. Each run takes
-  ~30s, so hourly checks use ~360 min/month. Every 15 min would use ~1,440 —
-  still within the free tier. (Public repos are unlimited, but keep this
-  private since your topic name is semi-sensitive.)
-- The workflow commits the latest hash + snapshot to `state/` so each run can
-  compare against the previous one. `last_snapshot.html` also lets you diff
-  exactly what changed after an alert fires.
+## Notes
+- GitHub cron can lag 5–30 min. If you learn the approximate drop date,
+  change the cron in monitor.yml to `*/15 * * * *` (every 15 min) — still
+  free (~30s/run, well under the 2,000 free minutes/month for private repos).
+- State and full API payloads are committed to `state/` each run, so after
+  any alert you can diff `last_tool.json` / `last_tabs.json` against git
+  history to see exactly what changed.
+- If InEvent ever requires auth on these endpoints, the monitor will alert
+  you with the changed status code rather than failing silently.
