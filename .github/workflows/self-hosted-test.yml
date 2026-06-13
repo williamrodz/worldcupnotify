@@ -1,0 +1,15 @@
+name: Self-Hosted Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: self-hosted
+    steps:
+      - name: Hello from self-hosted runner
+        run: |
+          echo "Self-hosted runner is working!"
+          hostname
+          whoami
+          date
