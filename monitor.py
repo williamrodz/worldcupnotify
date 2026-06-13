@@ -3,7 +3,7 @@
 Monitors the adidas Home of Soccer event (InEvent eventID 88244) via the
 public InEvent API instead of scraping HTML.
 
-Three layers of detection, in order of signal strength:
+Four layers of detection, in order of signal strength:
 
 1. KEY FLAGS — specific fields that almost certainly flip when
    registration/tickets open:
@@ -19,12 +19,18 @@ Three layers of detection, in order of signal strength:
 3. FULL PAYLOAD HASH — any other change in either public endpoint
    triggers a lower-priority "something changed" alert with a field diff.
 
+4. TICKET TEASER IMAGE — the homepage currently shows a "tickets coming
+   soon" graphic (an <img> inside <section id="i5dj">) whose CDN filename
+   is itself a content hash. If that image's src changes or the image
+   disappears, that's a strong signal tickets have gone live.
+
 State is stored in state/ and committed back to the repo by the workflow.
 """
 
 import hashlib
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
@@ -67,6 +73,33 @@ def fetch_json(url: str) -> dict:
     except json.JSONDecodeError:
         body = {"_raw": raw[:2000]}
     return {"status": status, "body": body}
+
+
+def fetch_html(url: str) -> str:
+    """Fetch a URL, returning its decoded HTML body (even on HTTP errors)."""
+    req = urllib.request.Request(url, headers=HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.read().decode("utf-8", errors="replace")
+
+
+# The "tickets coming soon" teaser image sits in <section id="i5dj"> as the
+# first element in <body>. Its CDN filename is a content hash, so any swap
+# or removal of this image is a strong "tickets may be live" signal.
+TICKET_IMAGE_SECTION_RE = re.compile(
+    r'<section[^>]*\bid="i5dj"[^>]*>(.*?)</section>', re.IGNORECASE | re.DOTALL
+)
+IMG_SRC_RE = re.compile(r'<img\b[^>]*\bsrc="([^"]+)"', re.IGNORECASE)
+
+
+def extract_ticket_image_src(html: str) -> str | None:
+    """Return the src of the ticket teaser image, or None if not found."""
+    section = TICKET_IMAGE_SECTION_RE.search(html)
+    container = section.group(1) if section else html[:2000]
+    img = IMG_SRC_RE.search(container)
+    return img.group(1) if img else None
 
 
 def extract_signals(tool: dict, tabs: dict, ticket: dict) -> dict:
@@ -137,15 +170,17 @@ def notify(title: str, message: str, priority: str = "urgent") -> None:
 
 # Flags whose change means "GO NOW" (max priority)
 HOT_KEYS = ("tool.registration", "tab.ticketManager.visible",
-            "ticket.status", "ticket.count")
+            "ticket.status", "ticket.count", "page.ticket_image_src")
 
 
 def main() -> None:
     tool = fetch_json(ENDPOINTS["tool"])
     tabs = fetch_json(ENDPOINTS["tabs"])
     ticket = fetch_json(TICKET_URL)
+    homepage = fetch_html(SITE_URL)
 
     new_signals = extract_signals(tool, tabs, ticket)
+    new_signals["page.ticket_image_src"] = extract_ticket_image_src(homepage)
     new_hash = payload_hash(tool, tabs)
     print("Signals:", json.dumps(new_signals, indent=2)[:1500])
     print("Payload hash:", new_hash)
@@ -166,7 +201,7 @@ def main() -> None:
         if hot:
             notify(
                 "🎟️ TICKETS LIKELY LIVE — Home of Soccer",
-                "Registration flags flipped:\n" + "\n".join(hot)
+                "Key signals changed:\n" + "\n".join(hot)
                 + f"\n\nGo: {SITE_URL}",
                 priority="max",
             )

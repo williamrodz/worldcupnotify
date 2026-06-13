@@ -10,7 +10,8 @@
     "tab.myItinerary.visible": "0",
     "tab.ticketManager.visible": "0",
     "ticket.status": 400,
-    "ticket.error": "attribute is a required parameter"
+    "ticket.error": "attribute is a required parameter",
+    "page.ticket_image_src": "https://cdn.inevent.com/11914/88244/08585552f45990c6fd69135ee0b60bcf35c11dc4.png"
   },
   "hash": "e1bc18b6182cff83a93c69d5c60718fdfdba9fc02fe694987fdb9b9af2a6da4e"
 }

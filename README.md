@@ -16,6 +16,10 @@ ntfy.sh the moment registration state changes.
    `giveawayTicket`, plus visibility of itinerary/forms tabs.
 3. **Anything else** in the two public payloads (default-priority alert via
    full payload hash).
+4. **Ticket teaser image** (max-priority "🎟️ TICKETS LIKELY LIVE" alert): the
+   homepage shows a "tickets coming soon" graphic whose CDN filename is a
+   content hash. If that image's URL changes or it disappears, you'll be
+   notified immediately.
 
 ## Setup (~5 minutes)
 1. **ntfy**: install the ntfy iOS app → subscribe to a random topic name,
